@@ -4,12 +4,9 @@ use crate::handlers::*;
 
 /// Builds the router and the individual routes  
 pub fn start(state: AppState) -> Router {
-
-
     let routes = Router::new()
-        .route("/", get(hello))
+        .route("/{loc}", get(weather))
         .with_state(state);
-
     routes 
 }
 

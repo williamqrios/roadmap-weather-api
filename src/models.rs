@@ -1,7 +1,8 @@
-use std::env; 
+use std::{env, fmt, str::FromStr}; 
 use dotenv::dotenv;
-use serde::{Serialize, Deserialize}; 
+use serde::{Serialize, Deserialize, Deserializer, de}; 
 use redis::Client; 
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Weather {
@@ -9,10 +10,10 @@ pub struct Weather {
     pub longitude: f64,
     #[serde(alias = "resolvedAddress")]
     pub resolved_address: String, 
-    pub description: String,
+    pub description: Option<String>,
     #[serde(alias = "currentConditions")]
-    pub current_conditions: DayStats,
-    pub days: Vec<DayStats>,
+    pub current_conditions: Option<DayStats>,
+    pub days: Option<Vec<DayStats>>,
 }
 
 /// Fields of interest to deserialize from the Weather API response. Optional fields represent keys that are only present in the "days" object but not in the "currentConditions" object. 
@@ -61,3 +62,25 @@ pub struct AppState {
     pub redis_client: Client,
 }
 
+/// Struct representing query params (in the format start_date=value&end_date=value)
+#[derive(Debug, Deserialize)] 
+pub struct DateParams {
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub start_date: Option<String>, 
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub end_date: Option<String>, 
+}
+
+/// Function to map an empty string as none (taken from Axum example)
+fn empty_string_as_none<'de, D, T>(de: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: FromStr,
+    T::Err: fmt::Display,
+{
+    let opt = Option::<String>::deserialize(de)?;
+    match opt.as_deref() {
+        None | Some("") => Ok(None),
+        Some(s) => FromStr::from_str(s).map_err(de::Error::custom).map(Some),
+    }
+}
